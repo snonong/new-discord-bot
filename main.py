@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from keep_alive import keep_alive
 import os
 
 intents = discord.Intents.default()
@@ -11,7 +10,9 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
 
-# ---------- 분배 명령어 ----------
+# ===============================
+# 🔹 분배 명령어 관련 클래스
+# ===============================
 class DistributionView(discord.ui.View):
     def __init__(self, labels: list[str], author_id: int, title: str):
         super().__init__(timeout=None)
@@ -41,10 +42,12 @@ class DistributionButton(discord.ui.Button):
         if interaction.user.id != self.parent_view.author_id:
             await interaction.response.send_message("❌ 명령어 작성자만 클릭할 수 있어요.", ephemeral=True)
             return
+
         self.disabled = True
         self.style = discord.ButtonStyle.success
         self.label = f"✅ {self.label}"
         self.parent_view.selected.add(self.label.replace("✅ ", ""))
+
         embed = self.parent_view.get_embed(interaction.user.display_name)
         await interaction.message.edit(embed=embed, view=self.parent_view)
         await interaction.response.defer()
@@ -60,7 +63,9 @@ async def 분배(interaction: discord.Interaction, 분배명: str, 닉네임: st
     embed = view.get_embed(interaction.user.display_name)
     await interaction.response.send_message(embed=embed, view=view)
 
-# ---------- 파티모집 명령어 ----------
+# ===============================
+# 🔹 파티모집 명령어 관련 클래스
+# ===============================
 class PartyView(discord.ui.View):
     def __init__(self, author_id: int, roles: list[str], max_participants: int, thread: discord.Thread, title: str, time: str):
         super().__init__(timeout=None)
@@ -72,13 +77,19 @@ class PartyView(discord.ui.View):
         self.participants = {role: [] for role in roles}
         self.user_roles = {}
 
+        row_index = 0
         for role in roles:
-            self.add_item(PartyButton(role, self))
-
-        self.add_item(FinishButton(self))
+            style = {
+                "세가": discord.ButtonStyle.primary,
+                "세바": discord.ButtonStyle.success,
+                "딜러": discord.ButtonStyle.danger
+            }.get(role, discord.ButtonStyle.secondary)
+            self.add_item(PartyButton(role, self, style=style, row=row_index))
+        row_index += 1
+        self.add_item(FinishButton(self, row=row_index))
 
     def get_embed(self, done=False):
-        desc = f"출발 시간: {self.time}\n\n"
+        desc = f"출발 시간: {self.time}\n설명:\n"
         counted_users = set()
 
         for role, users in self.participants.items():
@@ -100,27 +111,39 @@ class PartyView(discord.ui.View):
         return discord.Embed(title=f"🔥 {self.title} 파티 모집!", description=desc, color=color)
 
 class PartyButton(discord.ui.Button):
-    def __init__(self, role: str, parent: PartyView):
-        super().__init__(label=role, style=discord.ButtonStyle.primary)
+    def __init__(self, role: str, parent: PartyView, style=discord.ButtonStyle.primary, row=0):
+        super().__init__(label=role, style=style, row=row)
         self.role = role
         self.parent_view = parent
 
     async def callback(self, interaction: discord.Interaction):
         uid = interaction.user.id
-        if uid not in self.parent_view.user_roles:
-            self.parent_view.user_roles[uid] = set()
-        if uid not in self.parent_view.participants[self.role]:
+        removed = False
+
+        if uid in self.parent_view.participants[self.role]:
+            self.parent_view.participants[self.role].remove(uid)
+            self.parent_view.user_roles[uid].discard(self.role)
+            removed = True
+        else:
             self.parent_view.participants[self.role].append(uid)
-            self.parent_view.user_roles[uid].add(self.role)
+            self.parent_view.user_roles.setdefault(uid, set()).add(self.role)
 
         embed = self.parent_view.get_embed()
         await interaction.message.edit(embed=embed, view=self.parent_view)
-        await self.parent_view.thread.add_user(interaction.user)
+
+        if removed:
+            try:
+                await self.parent_view.thread.remove_user(interaction.user)
+            except:
+                pass
+        else:
+            await self.parent_view.thread.add_user(interaction.user)
+
         await interaction.response.defer()
 
 class FinishButton(discord.ui.Button):
-    def __init__(self, parent: PartyView):
-        super().__init__(label="모집 완료", style=discord.ButtonStyle.success)
+    def __init__(self, parent: PartyView, row=1):
+        super().__init__(label="모집 완료", style=discord.ButtonStyle.secondary, row=row)
         self.parent_view = parent
 
     async def callback(self, interaction: discord.Interaction):
@@ -140,16 +163,12 @@ async def 파티모집(interaction: discord.Interaction, 던전명: str, 출발�
     await interaction.response.send_message(embed=embed, view=view)
     await thread.send(f"{interaction.user.mention} 님이 파티를 모집했습니다!")
 
-# ---------- 봇 실행 ----------
+# ===============================
+# 🔹 봇 실행
+# ===============================
 @bot.event
 async def on_ready():
     await tree.sync()
     print(f"✅ 봇 실행됨: {bot.user}")
 
-# keep_alive 웹 서버 실행
-keep_alive()
-
-TOKEN = os.getenv("DISCORD_TOKEN")
-if not TOKEN:
-    raise ValueError("❌ DISCORD_TOKEN 환경변수가 설정되지 않았습니다.")
-bot.run(TOKEN)
+bot.run(os.getenv("DISCORD_TOKEN"))
