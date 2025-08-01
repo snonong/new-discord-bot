@@ -164,8 +164,15 @@ async def 파티(interaction: discord.Interaction, 던전명: str, 출발시간:
 
 @bot.event
 async def on_ready():
-    await tree.sync()
-    print(f"{bot.user} is now running!")
+    # 명령어 강제 재등록
+    try:
+        synced = await tree.sync()
+        print(f"📝 {len(synced)}개의 명령어를 동기화했습니다.")
+    except Exception as e:
+        print(f"❌ 명령어 동기화 실패: {e}")
+
+    print(f"✅ {bot.user} 봇이 온라인 상태입니다.")
+
 
 TOKEN = os.environ.get("DISCORD_TOKEN")
 bot.run(TOKEN)
