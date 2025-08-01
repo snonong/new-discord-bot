@@ -15,6 +15,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
 
 # ------------------ /분배 ------------------
+
 @tree.command(name="분배", description="분배 버튼을 생성합니다.")
 @app_commands.describe(제목="분배 제목", 닉네임="띄어쓰기로 분리된 닉네임 목록")
 async def 분배(interaction: discord.Interaction, 제목: str, 닉네임: str):
@@ -26,12 +27,10 @@ async def 분배(interaction: discord.Interaction, 제목: str, 닉네임: str):
             super().__init__(timeout=None)
             self.clicked = set()
             self.msg = None
-            self.buttons = []
             for name in names:
-                btn = discord.ui.Button(label=name, style=discord.ButtonStyle.success)
-                btn.callback = self.make_callback(name, btn)
-                self.add_item(btn)
-                self.buttons.append(btn)
+                button = discord.ui.Button(label=name, style=discord.ButtonStyle.success)
+                button.callback = self.make_callback(name, button)
+                self.add_item(button)
 
         def make_callback(self, name, button):
             async def callback(i: discord.Interaction):
@@ -40,6 +39,8 @@ async def 분배(interaction: discord.Interaction, 제목: str, 닉네임: str):
                     button.disabled = True
                     button.emoji = "✅"
                     await self.update(i)
+                else:
+                    await i.response.defer()
             return callback
 
         async def update(self, i: discord.Interaction):
@@ -78,36 +79,31 @@ async def 파티(interaction: discord.Interaction, 던전명: str, 출발시간:
             super().__init__(timeout=None)
 
         def get_embed(self):
-            def format_user(user_set, role_name):
-                parts = []
-                for u in user_set:
-                    other_roles = []
-                    if u in 세가 and role_name != "세가":
-                        other_roles.append("세가")
-                    if u in 세바 and role_name != "세바":
-                        other_roles.append("세바")
-                    if u in 딜러 and role_name != "딜러":
-                        other_roles.append("딜러")
-                    label = f"{u.mention}"
-                    if other_roles:
-                        label += f"({', '.join(other_roles)}O)"
-                    parts.append(label)
-                return " ".join(parts) or "-"
+            def format_user(users, role_name):
+                result = []
+                for user in users:
+                    tags = []
+                    if user in 세가 and role_name != "세가": tags.append("세가")
+                    if user in 세바 and role_name != "세바": tags.append("세바")
+                    if user in 딜러 and role_name != "딜러": tags.append("딜러")
+                    result.append(f"{user.mention}" + (f"({', '.join(tags)}O)" if tags else ""))
+                return " ".join(result) or "-"
 
-            참여인원 = len(set(세가 | 세바 | 딜러))
+            참여자수 = len(set(세가 | 세바 | 딜러))
             이모지 = EMOJI_MAP.get(interaction.channel.name, "🔥")
-            color = discord.Color.blue() if 완료됨 else discord.Color.red()
-            description = (
+            색상 = discord.Color.blue() if 완료됨 else discord.Color.red()
+
+            desc = (
                 f"출발 시간: {출발시간}\n"
-                f"인원: {참여인원} / {인원}\n"
+                f"인원: {참여자수} / {인원}\n"
                 f"설명: {설명}\n\n"
                 f"세가: {format_user(세가, '세가')}\n"
                 f"세바: {format_user(세바, '세바')}\n"
                 f"딜러: {format_user(딜러, '딜러')}"
             )
             if 완료됨:
-                description += "\n\n모집 완료!"
-            return discord.Embed(title=f"{이모지} {던전명} 파티 모집!", description=description, color=color)
+                desc += "\n\n모집 완료!"
+            return discord.Embed(title=f"{이모지} {던전명} 파티 모집!", description=desc, color=색상)
 
         async def update(self, i: discord.Interaction):
             for item in self.children:
@@ -139,7 +135,7 @@ async def 파티(interaction: discord.Interaction, 던전명: str, 출발시간:
                 딜러.add(i.user)
             await self.update(i)
 
-        @discord.ui.button(label="모집 완료", style=discord.ButtonStyle.secondary, custom_id="done")
+        @discord.ui.button(label="모집 완료", style=discord.ButtonStyle.secondary, custom_id="done", row=1)
         async def 완료버튼(self, i: discord.Interaction, button: discord.ui.Button):
             nonlocal 완료됨
             if i.user == 모집자:
