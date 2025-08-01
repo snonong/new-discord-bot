@@ -188,4 +188,4 @@ async def on_ready():
     await tree.sync()
     print(f"✅ 봇 실행됨: {bot.user}")
 
-bot.run(os.getenv("TOKEN"))
+bot.run(os.getenv("DISCORD_TOKEN"))
