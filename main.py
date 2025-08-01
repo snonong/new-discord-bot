@@ -26,6 +26,7 @@ async def 분배(interaction: discord.Interaction, 제목: str, 닉네임: str):
         def __init__(self):
             super().__init__(timeout=None)
             self.clicked = set()
+            self.msg = None  # 메시지를 여기에 저장
 
         async def interaction_check(self, i: discord.Interaction) -> bool:
             return True
@@ -33,33 +34,33 @@ async def 분배(interaction: discord.Interaction, 제목: str, 닉네임: str):
         async def on_timeout(self):
             for item in self.children:
                 item.disabled = True
+            if self.msg:
+                await self.msg.edit(view=self)
 
-        async def update(self, msg):
+        async def update(self):
             if len(self.clicked) == len(buttons):
                 embed = discord.Embed(title=f"💰 {제목}", description="분배 완료! 👍", color=discord.Color.green())
-                await msg.edit(embed=embed, view=self)
             else:
                 embed = discord.Embed(title=f"💰 {제목} 분배 시작!", description="닉네임 님에게 분배금 받아 가세요 😍", color=discord.Color.gold())
-                await msg.edit(embed=embed, view=self)
-
-        @discord.ui.button(label="완료", style=discord.ButtonStyle.secondary, custom_id="complete", disabled=True)
-        async def complete_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-            pass
+            if self.msg:
+                await self.msg.edit(embed=embed, view=self)
 
     view = 분배View()
 
     for btn in buttons:
-        async def callback(interaction: discord.Interaction, name=btn.label):
+        async def callback(interaction: discord.Interaction, name=btn.label, button=btn):
             if name not in view.clicked:
                 view.clicked.add(name)
-            btn.disabled = True
-            btn.emoji = "✅"
-            await view.update(msg)
+            button.disabled = True
+            button.emoji = "✅"
+            await view.update()
         btn.callback = callback
         view.add_item(btn)
 
     embed = discord.Embed(title=f"💰 {제목} 분배 시작!", description="닉네임 님에게 분배금 받아 가세요 😍", color=discord.Color.gold())
     msg = await interaction.followup.send(embed=embed, view=view)
+    view.msg = msg  # 메시지를 저장
+
 
 
 # ------------------ /파티 ------------------
