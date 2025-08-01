@@ -160,3 +160,11 @@ async def 파티(interaction: discord.Interaction, 던전명: str, 출발시간:
     embed = view.get_embed()
     msg = await interaction.followup.send(content="@everyone", embed=embed, view=view)
     thread = await msg.create_thread(name=f"{던전명} 파티 모집 스레드")
+
+@bot.event
+async def on_ready():
+    await tree.sync()
+    print(f"{bot.user} is now running!")
+
+TOKEN = os.environ.get("DISCORD_TOKEN")
+bot.run(TOKEN)
