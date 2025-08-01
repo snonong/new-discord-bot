@@ -132,4 +132,9 @@ async def on_ready():
         print(f"Sync failed: {e}")
 
 
-client.run(os.environ['DISCORD_TOKEN'])
+# 수정된 코드 (환경변수 체크 포함)
+TOKEN = os.environ.get("DISCORD_TOKEN")
+if TOKEN is None:
+    raise RuntimeError("DISCORD_TOKEN 환경변수가 설정되어 있지 않습니다.")
+
+client.run(TOKEN)
