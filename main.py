@@ -1,153 +1,162 @@
-import os
 import discord
 from discord.ext import commands
 from discord import app_commands
-from discord.ui import Button, View
 from keep_alive import keep_alive
+import os
+
+keep_alive()
 
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
+intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
+tree = bot.tree
 
-# ========== /분배 명령어 ==========
-class DistributeView(View):
-    def __init__(self, names, author):
-        super().__init__(timeout=None)
-        self.clicked = set()
-        self.names = names
-        self.author = author
-        for name in names:
-            self.add_item(self.create_button(name))
+# ------------------ /분배 ------------------
+@tree.command(name="분배", description="분배 버튼을 생성합니다.")
+@app_commands.describe(제목="분배 제목", 닉네임="띄어쓰기로 분리된 닉네임 목록")
+async def 분배(interaction: discord.Interaction, 제목: str, 닉네임: str):
+    await interaction.response.defer()
+    names = 닉네임.strip().split()
+    buttons = [discord.ui.Button(label=name, style=discord.ButtonStyle.success, custom_id=name) for name in names]
 
-    def create_button(self, label):
-        button = Button(label=label, style=discord.ButtonStyle.success)
+    class 분배View(discord.ui.View):
+        def __init__(self):
+            super().__init__(timeout=None)
+            self.clicked = set()
 
-        async def callback(interaction):
-            if interaction.user in self.clicked:
-                await interaction.response.send_message("이미 클릭했어요!", ephemeral=True)
-                return
-            self.clicked.add(interaction.user)
-            button.disabled = True
-            await interaction.response.edit_message(view=self)
+        async def interaction_check(self, i: discord.Interaction) -> bool:
+            return True
 
-            if len(self.clicked) == len(self.names):
-                embed = discord.Embed(
-                    title=f"💰 {interaction.message.embeds[0].title[2:]}",
-                    description="분배 완료! 👍",
-                    color=discord.Color.green()
-                )
-                await interaction.message.edit(embed=embed, view=self)
+        async def on_timeout(self):
+            for item in self.children:
+                item.disabled = True
 
-        button.callback = callback
-        return button
-
-@bot.tree.command(name="분배", description="유물 분배용 버튼 생성")
-@app_commands.describe(제목="분배 제목", 닉네임목록="띄어쓰기로 닉네임 구분")
-async def 분배(interaction: discord.Interaction, 제목: str, 닉네임목록: str):
-    names = 닉네임목록.split()
-    embed = discord.Embed(
-        title=f"💰 {제목} 분배 시작!",
-        description=f"{' '.join(names)} 님에게 분배금 받아 가세요 😍",
-        color=discord.Color.gold()
-    )
-    await interaction.response.send_message(embed=embed, view=DistributeView(names, interaction.user))
-
-# ========== /파티모집 명령어 ==========
-class PartyView(View):
-    def __init__(self, author: discord.Member, max_count: int, description: str):
-        super().__init__(timeout=None)
-        self.author = author
-        self.max_count = max_count
-        self.description = description
-        self.roles = {"세가": {}, "세바": {}, "딜러": {}}
-        self.message = None
-        self.thread = None
-
-        self.add_item(self.create_button("세가", discord.ButtonStyle.primary))
-        self.add_item(self.create_button("세바", discord.ButtonStyle.success))
-        self.add_item(self.create_button("딜러", discord.ButtonStyle.danger))
-        self.add_item(self.create_complete_button())
-
-    def create_button(self, label, style):
-        button = Button(label=label, style=style)
-
-        async def callback(interaction: discord.Interaction):
-            user = interaction.user
-            role_dict = self.roles[label]
-
-            if user.id in role_dict:
-                del role_dict[user.id]
-                await interaction.response.send_message(f"{label} 역할에서 제거되었습니다.", ephemeral=True)
+        async def update(self, msg):
+            if len(self.clicked) == len(buttons):
+                embed = discord.Embed(title=f"💰 {제목}", description="분배 완료! 👍", color=discord.Color.green())
+                await msg.edit(embed=embed, view=self)
             else:
-                role_dict[user.id] = user.display_name
+                embed = discord.Embed(title=f"💰 {제목} 분배 시작!", description="닉네임 님에게 분배금 받아 가세요 😍", color=discord.Color.gold())
+                await msg.edit(embed=embed, view=self)
 
-            # 스레드 자동 초대
-            if self.thread and user not in self.thread.members:
-                await self.thread.add_user(user)
+        @discord.ui.button(label="완료", style=discord.ButtonStyle.secondary, custom_id="complete", disabled=True)
+        async def complete_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+            pass
 
-            await interaction.message.edit(embed=self.get_embed())
+    view = 분배View()
 
-        button.callback = callback
-        return button
+    for btn in buttons:
+        async def callback(interaction: discord.Interaction, name=btn.label):
+            if name not in view.clicked:
+                view.clicked.add(name)
+            btn.disabled = True
+            btn.emoji = "✅"
+            await view.update(msg)
+        btn.callback = callback
+        view.add_item(btn)
 
-    def create_complete_button(self):
-        button = Button(label="모집 완료", style=discord.ButtonStyle.secondary)
+    embed = discord.Embed(title=f"💰 {제목} 분배 시작!", description="닉네임 님에게 분배금 받아 가세요 😍", color=discord.Color.gold())
+    msg = await interaction.followup.send(embed=embed, view=view)
 
-        async def callback(interaction: discord.Interaction):
-            if interaction.user != self.author:
-                await interaction.response.send_message("모집 완료는 작성자만 가능합니다.", ephemeral=True)
-                return
 
-            embed = self.get_embed(done=True)
-            await interaction.message.edit(embed=embed, view=self)
+# ------------------ /파티 ------------------
+EMOJI_MAP = {
+    "자유모집": "🔥",
+    "크롬바스-모집": "💀",
+    "글렌베르나-모집": "❄️",
+    "브리레흐-모집": "🍕"
+}
 
-        button.callback = callback
-        return button
+@tree.command(name="파티", description="파티 모집 임베드를 생성합니다.")
+@app_commands.describe(던전명="던전 이름", 출발시간="출발 시간", 인원="모집 인원 수", 설명="파티 설명 문구")
+async def 파티(interaction: discord.Interaction, 던전명: str, 출발시간: str, 인원: int, 설명: str):
+    await interaction.response.defer()
 
-    def get_embed(self, done=False):
-        total_users = set()
-        role_lines = []
-        for role, members in self.roles.items():
-            for uid in members:
-                total_users.add(uid)
+    세가 = set()
+    세바 = set()
+    딜러 = set()
+    모집자 = interaction.user
+    완료됨 = False
 
-        count_text = f"{len(total_users)} / {self.max_count}"
-        desc = f"출발 시간: \n인원: {count_text}\n설명: {self.description}\n\n"
-        for role, members in self.roles.items():
-            users = []
-            for uid, name in members.items():
-                swaps = [
-                    other_role for other_role, other_members in self.roles.items()
-                    if other_role != role and uid in other_members
-                ]
-                suffix = f"({', '.join(swaps)}O)" if swaps else ""
-                users.append(f"<@{uid}>{suffix}")
-            role_lines.append(f"{role}: " + ", ".join(users) if users else f"{role}: -")
+    class 모집View(discord.ui.View):
+        def __init__(self):
+            super().__init__(timeout=None)
 
-        desc += "\n".join(role_lines)
-        if done:
-            desc += "\n\n모집 완료!"
+        def get_embed(self):
+            def format_user(user_set, role_name):
+                parts = []
+                for u in user_set:
+                    other_roles = []
+                    if u in 세가 and role_name != "세가":
+                        other_roles.append("세가")
+                    if u in 세바 and role_name != "세바":
+                        other_roles.append("세바")
+                    if u in 딜러 and role_name != "딜러":
+                        other_roles.append("딜러")
+                    label = f"{u.mention}"
+                    if other_roles:
+                        label += f"({', '.join(other_roles)}O)"
+                    parts.append(label)
+                return " ".join(parts) or "-"
 
-        embed = discord.Embed(
-            title="🔥 파티 모집!" if not done else "🔥 파티 완료!",
-            description=desc,
-            color=discord.Color.blue() if done else discord.Color.red()
-        )
-        return embed
+            참여인원 = len(set(세가 | 세바 | 딜러))
+            이모지 = EMOJI_MAP.get(interaction.channel.name, "🔥")
+            color = discord.Color.red() if not 완료됨 else discord.Color.blue()
+            description = (
+                f"출발 시간: {출발시간}\n"
+                f"인원: {참여인원} / {인원}\n"
+                f"설명: {설명}\n\n"
+                f"세가: {format_user(세가, '세가')}\n"
+                f"세바: {format_user(세바, '세바')}\n"
+                f"딜러: {format_user(딜러, '딜러')}"
+            )
+            if 완료됨:
+                description += "\n\n모집 완료!"
+            return discord.Embed(title=f"{이모지} {던전명} 파티 모집!", description=description, color=color)
 
-@bot.tree.command(name="파티모집", description="파티 모집을 시작합니다.")
-@app_commands.describe(던전명="던전 이름", 출발시간="출발 시간", 인원="모집 인원", 설명="설명")
-async def 파티모집(interaction: discord.Interaction, 던전명: str, 출발시간: str, 인원: int, 설명: str):
-    view = PartyView(interaction.user, 인원, 설명)
+        async def update(self, interaction: discord.Interaction):
+            for item in self.children:
+                if isinstance(item, discord.ui.Button) and item.custom_id != "done":
+                    item.disabled = 완료됨
+            await interaction.edit_original_response(embed=self.get_embed(), view=self)
+
+        @discord.ui.button(label="세가", style=discord.ButtonStyle.primary, custom_id="세가")
+        async def 세가버튼(self, interaction: discord.Interaction, button: discord.ui.Button):
+            if interaction.user in 세가:
+                세가.remove(interaction.user)
+            else:
+                세가.add(interaction.user)
+            await self.update(interaction)
+
+        @discord.ui.button(label="세바", style=discord.ButtonStyle.success, custom_id="세바")
+        async def 세바버튼(self, interaction: discord.Interaction, button: discord.ui.Button):
+            if interaction.user in 세바:
+                세바.remove(interaction.user)
+            else:
+                세바.add(interaction.user)
+            await self.update(interaction)
+
+        @discord.ui.button(label="딜러", style=discord.ButtonStyle.danger, custom_id="딜러")
+        async def 딜러버튼(self, interaction: discord.Interaction, button: discord.ui.Button):
+            if interaction.user in 딜러:
+                딜러.remove(interaction.user)
+            else:
+                딜러.add(interaction.user)
+            await self.update(interaction)
+
+        @discord.ui.button(label="모집 완료", style=discord.ButtonStyle.secondary, custom_id="done")
+        async def 완료버튼(self, interaction: discord.Interaction, button: discord.ui.Button):
+            nonlocal 완료됨
+            if interaction.user == 모집자:
+                완료됨 = True
+                await self.update(interaction)
+            else:
+                await interaction.response.send_message("모집자만 완료할 수 있어요!", ephemeral=True)
+
+    view = 모집View()
     embed = view.get_embed()
-    embed.title = f"{던전명} 파티 모집!"
-    await interaction.response.send_message(content="@everyone", embed=embed, view=view)
-    view.message = await interaction.original_response()
-    view.thread = await view.message.create_thread(name=f"{던전명} 파티", auto_archive_duration=60)
-
-# ========== Keep Alive + 실행 ==========
-keep_alive()
-TOKEN = os.environ.get("DISCORD_TOKEN")
-bot.run(TOKEN)
+    msg = await interaction.followup.send(content="@everyone", embed=embed, view=view)
+    thread = await msg.create_thread(name=f"{던전명} 파티 모집 스레드")
