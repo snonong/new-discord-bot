@@ -210,4 +210,4 @@ async def on_ready():
 
 # 실행
 keep_alive()
-bot.run(os.environ[""DISCORD_TOKEN""])
+bot.run(os.environ["DISCORD_TOKEN"])
