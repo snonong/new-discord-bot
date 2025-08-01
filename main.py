@@ -41,7 +41,7 @@ async def 분배(interaction: discord.Interaction, 제목: str, 닉네임: str):
             if len(self.clicked) == len(buttons):
                 embed = discord.Embed(title=f"💰 {제목}", description="분배 완료! 👍", color=discord.Color.green())
             else:
-                embed = discord.Embed(title=f"💰 {제목} 분배 시작!", description="닉네임 님에게 분배금 받아 가세요 😍", color=discord.Color.gold())
+                embed = discord.Embed(title=f"💰 {제목} 분배 시작!", description=f"**{interaction.user.display_name}** 님에게 분배금 받아 가세요 😍", color=discord.Color.gold())
             if self.msg:
                 await self.msg.edit(embed=embed, view=self)
 
