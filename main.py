@@ -10,7 +10,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 tree = bot.tree
 
-GUILD_ID = discord.Object(id=YOUR_GUILD_ID)  # 선택사항: 명령어 즉시 반영용
+# GUILD_ID = discord.Object(id=YOUR_GUILD_ID)
 
 # 🧩 /분배 명령어
 class MultiSelectButton(discord.ui.View):
