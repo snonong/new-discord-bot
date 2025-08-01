@@ -1,12 +1,10 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-
-# 웹 서버를 켜서 24시간 유지
 from keep_alive import keep_alive
-keep_alive()
-
 import os
+
+keep_alive()
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -16,7 +14,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
 
 # ===============================
-# 🔹 분배 명령어 관련
+# 🔹 분배 명령어
 # ===============================
 class DistributionView(discord.ui.View):
     def __init__(self, labels, author_id, title):
@@ -47,12 +45,10 @@ class DistributionButton(discord.ui.Button):
         if interaction.user.id != self.parent_view.author_id:
             await interaction.response.send_message("❌ 명령어 작성자만 클릭할 수 있어요.", ephemeral=True)
             return
-
         self.disabled = True
         self.style = discord.ButtonStyle.success
         self.label = f"✅ {self.label}"
         self.parent_view.selected.add(self.label.replace("✅ ", ""))
-
         embed = self.parent_view.get_embed(interaction.user.display_name)
         await interaction.message.edit(embed=embed, view=self.parent_view)
         await interaction.response.defer()
@@ -69,7 +65,7 @@ async def 분배(interaction: discord.Interaction, 분배명: str, 닉네임: st
     await interaction.response.send_message(embed=embed, view=view)
 
 # ===============================
-# 🔹 파티모집 명령어 관련
+# 🔹 파티모집 명령어
 # ===============================
 class PartyView(discord.ui.View):
     def __init__(self, author_id, roles, max_participants, thread, title, time, description, channel_emoji):
@@ -95,7 +91,6 @@ class PartyView(discord.ui.View):
         self.add_item(FinishButton(self, row=1))
 
     def get_embed(self, done=False):
-        unique_users = set()
         desc = f"출발 시간: {self.time}\n"
         desc += f"인원: {len(set.union(*[set(users) for users in self.participants.values()]))} / {self.max_participants}\n"
         desc += f"설명: {self.description}\n\n"
@@ -108,7 +103,6 @@ class PartyView(discord.ui.View):
                 if swaps:
                     mention += f"({','.join(swaps)}O)"
                 mentions.append(mention)
-                unique_users.add(uid)
             desc += f"{role}:  " + " ".join(mentions) + "\n"
 
         if done:
@@ -161,7 +155,6 @@ class FinishButton(discord.ui.Button):
         await interaction.message.edit(embed=embed, view=None)
         await interaction.response.defer()
 
-# 채널 이름에 따른 이모지 매핑
 channel_emojis = {
     "자유모집": "🔥",
     "크롬바스-모집": "💀",
