@@ -1,50 +1,41 @@
 import discord
 from discord import app_commands, Interaction
+from views.party_view import PartyView
+from utils.thread_utils import schedule_thread_deletion
 
-class NameButton(discord.ui.Button):
-    def __init__(self, label, author_id):
-        super().__init__(label=label, style=discord.ButtonStyle.success)
-        self.author_id = author_id
+async def register_party_command(bot):
 
-    async def callback(self, interaction: Interaction):
-        view = self.view
-        if interaction.user in view.clicked_users:
-            await interaction.response.send_message("이미 클릭했습니다!", ephemeral=True)
-            return
-
-        view.clicked_users.append(interaction.user)
-        self.disabled = True
-        await interaction.response.edit_message(view=view)
-
-        if len(view.clicked_users) == len(view.children):
-            embed = view.embed
-            embed.color = discord.Color.green()
-            embed.title = f"💰 {view.title}"
-            embed.description = "분배 완료! 👍"
-            await interaction.message.edit(embed=embed)
-
-class MultiSelectButton(discord.ui.View):
-    def __init__(self, labels, author_id, title):
-        super().__init__(timeout=None)
-        self.clicked_users = []
-        self.author_id = author_id
-        self.title = title
-        self.embed = discord.Embed(
-            title=f"💰 {title} 분배 시작!",
-            description=f"{title} 님에게 분배금 받아 가세요 😍",
-            color=discord.Color.gold()
-        )
-        for label in labels:
-            self.add_item(NameButton(label=label, author_id=author_id))
-
-async def register_distribute_command(bot):
-
-    @bot.tree.command(name="분배", description="닉네임별 분배 버튼을 생성합니다.")
+    @bot.tree.command(name="파티", description="던전 파티를 모집합니다.")
     @app_commands.describe(
-        제목="분배 제목",
-        닉네임="닉네임 목록 (띄어쓰기 구분)"
+        던전명="던전 이름",
+        출발시간="예: 8/3(일) 오후 9시",
+        인원="모집 최대 인원",
+        설명="파티 모집 이유, 분배 등 편하게 작성해주세요."
     )
-    async def 분배(interaction: Interaction, 제목: str, 닉네임: str):
-        names = 닉네임.split()
-        view = MultiSelectButton(labels=names, author_id=interaction.user.id, title=제목)
-        await interaction.response.send_message(embed=view.embed, view=view)
+    async def 파티(interaction: Interaction, 던전명: str, 출발시간: str, 인원: int, 설명: str):
+        await interaction.response.defer(thinking=True)  # 유효 시간 확보
+
+        view = PartyView(
+            interaction=interaction,
+            roles=["세가", "세바", "딜러"],
+            party_name=던전명,
+            time=출발시간,
+            capacity=인원,
+            description=설명
+        )
+        view.embed.description = view.generate_description()
+
+        await interaction.followup.send(content="@everyone", embed=view.embed, view=view)
+
+        try:
+            parts = 출발시간.split()
+            date_part = parts[0]
+            time_part = parts[1] if len(parts) > 1 else ""
+            thread_name = f"{date_part} {time_part} {던전명}"
+        except Exception:
+            thread_name = f"출발일시 미정 {던전명}"
+
+        thread = await interaction.channel.create_thread(name=thread_name, type=discord.ChannelType.public_thread)
+        await thread.add_user(interaction.user)
+        view.thread = thread
+        schedule_thread_deletion(thread, 출발시간)
