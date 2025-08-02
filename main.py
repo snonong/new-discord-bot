@@ -131,16 +131,20 @@ async def 파티(interaction: Interaction, 던전명: str, 출발시간: str, �
 @bot.event
 async def on_ready():
     try:
+        # 명령어 초기화 먼저 수행
+        await bot.tree.clear_commands(guild=TEST_GUILD_ID)
         await bot.tree.sync(guild=TEST_GUILD_ID)
-        print("✅ 테스트 서버 명령어 등록 완료")
+        print("✅ 테스트 서버 명령어 초기화 및 재등록 완료")
 
+        await bot.tree.clear_commands(guild=LIVE_GUILD_ID)
         await bot.tree.sync(guild=LIVE_GUILD_ID)
-        print("✅ 운영 서버 명령어 등록 완료")
+        print("✅ 운영 서버 명령어 초기화 및 재등록 완료")
 
     except Exception as e:
         print(f"❌ 명령어 등록 중 오류 발생: {e}")
 
     print(f"🤖 봇 로그인 완료: {bot.user}")
+
 
 
 keep_alive()
