@@ -217,22 +217,6 @@ async def 파티(interaction: Interaction, 던전명: str, 출발시간: str, �
     await thread.add_user(interaction.user)
     schedule_thread_deletion(thread, 출발시간)
 
-# -------------------------- 관리자 전용 명령어 --------------------------
-@bot.tree.command(name="명령어업데이트", description="명령어를 수동으로 다시 등록합니다 (관리자 전용)")
-async def 명령어업데이트(interaction: Interaction):
-    if interaction.user.id != 296247093503459328:
-        await interaction.response.send_message("이 명령어는 관리자만 사용할 수 있습니다.", ephemeral=True)
-        return
-
-    try:
-        await bot.tree.clear_commands(guild=TEST_GUILD_ID)
-        await bot.tree.sync(guild=TEST_GUILD_ID)
-        await bot.tree.clear_commands(guild=LIVE_GUILD_ID)
-        await bot.tree.sync(guild=LIVE_GUILD_ID)
-        await interaction.response.send_message("✅ 명령어 업데이트 완료!", ephemeral=True)
-    except Exception as e:
-        await interaction.response.send_message(f"❌ 명령어 업데이트 실패: {e}", ephemeral=True)
-
 # -------------------------- 배포 --------------------------
 @bot.event
 async def on_ready():
