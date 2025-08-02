@@ -131,7 +131,7 @@ class PartyView(discord.ui.View):
             icon = "🔥"
 
         self.embed = discord.Embed(
-            title=f"{icon} {party_name} 파티 모집!",
+            title=f"{icon} {party_name}",
             color=discord.Color.red()
         )
         for role in roles:
@@ -155,6 +155,7 @@ class PartyView(discord.ui.View):
             f"**설명**: {self.description_text}",
             "",
             "•❅───────────✧❅✦❅✧───────────❅•",
+            "```",
             "세가       세바       딜러"
         ]
 
@@ -166,6 +167,7 @@ class PartyView(discord.ui.View):
                 row.append(text.ljust(15))
             lines.append("".join(row))
 
+        lines.append("```")
         lines.append("•❅───────────✧❅✦❅✧───────────❅•")
         return "\n".join(lines)
 
