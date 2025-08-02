@@ -106,7 +106,7 @@ class CompleteButton(discord.ui.Button):
         view = self.view
         embed = view.embed
         embed.color = discord.Color.blue()
-        embed.description += "\n\n모집 완료!"
+        embed.description += "\n\n🌟모집 완료🌟"
         await interaction.response.edit_message(embed=embed, view=view)
         for child in view.children:
             child.disabled = True
@@ -197,7 +197,7 @@ def schedule_thread_deletion(thread: discord.Thread, time_text: str):
 @bot.tree.command(name="파티", description="던전 파티를 모집합니다.")
 @app_commands.describe(
     던전명="던전 이름, 릴수",
-    출발시간="예: 8/3(일) 오후 9시 (자동 삭제를 위해 이 형식으로 작성 부탁 드립니다.)",
+    출발시간="예: 8/3(일) 오후 9시 (자동 삭제를 위해 꼭 이 형식으로!)",
     인원="모집 최대 인원",
     설명="파티 모집 이유, 분배 등 편하게 작성 해주세요."
 )
