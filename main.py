@@ -213,7 +213,16 @@ async def 파티(interaction: Interaction, 던전명: str, 출발시간: str, �
     )
     view.embed.description = view.generate_description()
     await interaction.response.send_message(content="@everyone", embed=view.embed, view=view)
-    thread = await interaction.channel.create_thread(name=f"{던전명} 파티 모집", type=discord.ChannelType.public_thread)
+
+    try:
+        parts = 출발시간.split()
+        date_part = parts[0]
+        time_part = parts[1] if len(parts) > 1 else ""
+        thread_name = f"{date_part} {time_part} {던전명}"
+    except Exception:
+        thread_name = f"출발일시 미정 {던전명}"
+
+    thread = await interaction.channel.create_thread(name=thread_name, type=discord.ChannelType.public_thread)
     await thread.add_user(interaction.user)
     schedule_thread_deletion(thread, 출발시간)
 
