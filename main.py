@@ -219,8 +219,6 @@ async def 파티(interaction: Interaction, 던전명: str, 출발시간: str, �
 
 # -------------------------- 관리자 전용 명령어 --------------------------
 @bot.tree.command(name="명령어업데이트", description="명령어를 수동으로 다시 등록합니다 (관리자 전용)")
-@app_commands.checks.has_permissions(administrator=True)
-@app_commands.default_permissions(administrator=True)
 async def 명령어업데이트(interaction: Interaction):
     if interaction.user.id != 296247093503459328:
         await interaction.response.send_message("이 명령어는 관리자만 사용할 수 있습니다.", ephemeral=True)
