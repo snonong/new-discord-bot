@@ -70,14 +70,20 @@ class RoleButton(discord.ui.Button):
         self.clicked_users = []
 
     async def callback(self, interaction: Interaction):
-        if interaction.user in self.clicked_users:
-            await interaction.response.send_message("이미 선택하셨습니다!", ephemeral=True)
-            return
-
-        self.clicked_users.append(interaction.user)
         view = self.view
         embed = view.embed
 
+        if interaction.user in self.clicked_users:
+            self.clicked_users.remove(interaction.user)
+            view.user_roles[interaction.user].remove(self.role)
+            if not view.user_roles[interaction.user]:
+                del view.user_roles[interaction.user]
+                view.unique_users.discard(interaction.user)
+            embed.description = view.generate_description()
+            await interaction.response.edit_message(embed=embed, view=view)
+            return
+
+        self.clicked_users.append(interaction.user)
         view.user_roles.setdefault(interaction.user, []).append(self.role)
         view.unique_users.add(interaction.user)
 
@@ -137,7 +143,7 @@ class PartyView(discord.ui.View):
         for button in self.children:
             if isinstance(button, RoleButton):
                 for u in button.clicked_users:
-                    other_roles = [r for r in self.user_roles[u] if r != button.role]
+                    other_roles = [r for r in self.user_roles.get(u, []) if r != button.role]
                     if other_roles:
                         role_lines[button.role].append(f"{u.mention}({', '.join(other_roles)} O)")
                     else:
@@ -152,12 +158,13 @@ class PartyView(discord.ui.View):
             "세가       세바       딜러"
         ]
 
-        max_rows = max(len(role_lines[r]) for r in self.roles)
+        max_rows = max((len(role_lines[r]) for r in self.roles), default=0)
         for i in range(max_rows):
             row = []
             for r in self.roles:
-                row.append(role_lines[r][i] if i < len(role_lines[r]) else " ")
-            lines.append("   ".join(row))
+                text = role_lines[r][i] if i < len(role_lines[r]) else ""
+                row.append(text.ljust(15))
+            lines.append("".join(row))
 
         lines.append("•❅───────────✧❅✦❅✧───────────❅•")
         return "\n".join(lines)
