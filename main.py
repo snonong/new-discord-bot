@@ -132,7 +132,7 @@ class PartyView(discord.ui.View):
             icon = "❄️"
         elif "브리레흐-모집" in self.channel.name:
             icon = "🍕"
-      
+
         self.embed = discord.Embed(
             title=f"{icon} {party_name}",
             color=discord.Color.red()
@@ -146,34 +146,25 @@ class PartyView(discord.ui.View):
         for button in self.children:
             if isinstance(button, RoleButton):
                 for u in button.clicked_users:
-                    display_name = getattr(u, 'display_name', u.name)
-                    mention_text = f"@{display_name}"
                     other_roles = [r for r in self.user_roles.get(u, []) if r != button.role]
                     if other_roles:
-                        role_lines[button.role].append(f"{mention_text}({', '.join(other_roles)} O)")
+                        role_lines[button.role].append(f"{u.mention}({', '.join(other_roles)} O)")
                     else:
-                        role_lines[button.role].append(f"{mention_text}")
+                        role_lines[button.role].append(f"{u.mention}")
 
         lines = [
-            f"**출발 시간**: {self.time}",
+            f"**출발 시간**: {self.time} (예: 8/3(일) 오후 9시)",
             f"**인원**: {len(self.unique_users)} / {self.capacity}",
             f"**설명**: {self.description_text}",
             "",
-            "•❅───────────✧❅✦❅✧───────────❅•",
-            "```",
-            "세가       세바       딜러"
+            "•❅──────────✧❅✦❅✧──────────❅•"
         ]
 
-        max_rows = max((len(role_lines[r]) for r in self.roles), default=0)
-        for i in range(max_rows):
-            row = []
-            for r in self.roles:
-                text = role_lines[r][i] if i < len(role_lines[r]) else ""
-                row.append(text.ljust(15))
-            lines.append("".join(row))
+        for r in self.roles:
+            members = ", ".join(role_lines[r]) if role_lines[r] else ""
+            lines.append(f"{r}:  {members}")
 
-        lines.append("```")
-        lines.append("•❅───────────✧❅✦❅✧───────────❅•")
+        lines.append("•❅──────────✧❅✦❅✧──────────❅•")
         return "\n".join(lines)
 
 def schedule_thread_deletion(thread: discord.Thread, time_text: str):
@@ -205,10 +196,10 @@ def schedule_thread_deletion(thread: discord.Thread, time_text: str):
 
 @bot.tree.command(name="파티", description="던전 파티를 모집합니다.")
 @app_commands.describe(
-    던전명="던전 이름",
-    출발시간="예: 8/3 오후 9시",
-    인원="모집 인원",
-    설명="추가 설명"
+    던전명="던전 이름, 릴수",
+    출발시간="예: 8/3(일) 오후 9시 (자동 삭제를 위해 꼭 이 형식으로!)",
+    인원="모집 최대 인원",
+    설명="파티 모집 이유, 분배 등 편하게 작성 해주세요."
 )
 async def 파티(interaction: Interaction, 던전명: str, 출발시간: str, 인원: int, 설명: str):
     view = PartyView(
