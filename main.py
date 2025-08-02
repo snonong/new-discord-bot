@@ -3,6 +3,9 @@ import discord
 from discord.ext import commands
 from discord import app_commands, Interaction, TextChannel
 from keep_alive import keep_alive
+import asyncio
+from datetime import datetime, timedelta
+import re
 
 TOKEN = os.environ["DISCORD_TOKEN"]
 TEST_GUILD_ID = discord.Object(id=int(os.environ["TEST_GUILD_ID"]))
@@ -122,14 +125,14 @@ class PartyView(discord.ui.View):
         self.user_roles = {}
         self.channel = interaction.channel
 
-        icon = "💀"
-        if "글렌베르나-모집" in self.channel.name:
+        icon = "🔥"
+        if "크롬바스-모집" in self.channel.name:
+            icon = "💀"
+        elif "글렌베르나-모집" in self.channel.name:
             icon = "❄️"
         elif "브리레흐-모집" in self.channel.name:
             icon = "🍕"
-        elif "자유모집" in self.channel.name:
-            icon = "🔥"
-
+      
         self.embed = discord.Embed(
             title=f"{icon} {party_name}",
             color=discord.Color.red()
@@ -143,11 +146,13 @@ class PartyView(discord.ui.View):
         for button in self.children:
             if isinstance(button, RoleButton):
                 for u in button.clicked_users:
+                    display_name = getattr(u, 'display_name', u.name)
+                    mention_text = f"@{display_name}"
                     other_roles = [r for r in self.user_roles.get(u, []) if r != button.role]
                     if other_roles:
-                        role_lines[button.role].append(f"{u.mention}({', '.join(other_roles)} O)")
+                        role_lines[button.role].append(f"{mention_text}({', '.join(other_roles)} O)")
                     else:
-                        role_lines[button.role].append(f"{u.mention}")
+                        role_lines[button.role].append(f"{mention_text}")
 
         lines = [
             f"**출발 시간**: {self.time}",
@@ -171,10 +176,37 @@ class PartyView(discord.ui.View):
         lines.append("•❅───────────✧❅✦❅✧───────────❅•")
         return "\n".join(lines)
 
+def schedule_thread_deletion(thread: discord.Thread, time_text: str):
+    now = datetime.now()
+    try:
+        date_match = re.search(r'(\d{1,2})/(\d{1,2})', time_text)
+        time_match = re.search(r'(오전|오후)?\s?(\d{1,2})(시)?', time_text)
+
+        if date_match and time_match:
+            month = int(date_match.group(1))
+            day = int(date_match.group(2))
+            hour = int(time_match.group(2))
+            if '오후' in time_match.group(1):
+                hour = (hour % 12) + 12
+            elif '오전' in time_match.group(1):
+                hour = hour % 12
+
+            year = now.year
+            party_time = datetime(year, month, day, hour)
+            delete_time = party_time + timedelta(hours=12)
+            delay = (delete_time - now).total_seconds()
+            if delay > 0:
+                async def delete_later():
+                    await asyncio.sleep(delay)
+                    await thread.delete(reason="출발 후 12시간 경과로 자동 삭제")
+                asyncio.create_task(delete_later())
+    except Exception as e:
+        print(f"[자동 삭제 오류] {e}")
+
 @bot.tree.command(name="파티", description="던전 파티를 모집합니다.")
 @app_commands.describe(
     던전명="던전 이름",
-    출발시간="예: 오후 9시",
+    출발시간="예: 8/3 오후 9시",
     인원="모집 인원",
     설명="추가 설명"
 )
@@ -191,6 +223,7 @@ async def 파티(interaction: Interaction, 던전명: str, 출발시간: str, �
     await interaction.response.send_message(content="@everyone", embed=view.embed, view=view)
     thread = await interaction.channel.create_thread(name=f"{던전명} 파티 모집", type=discord.ChannelType.public_thread)
     await thread.add_user(interaction.user)
+    schedule_thread_deletion(thread, 출발시간)
 
 # -------------------------- 배포 --------------------------
 @bot.event
