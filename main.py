@@ -5,7 +5,10 @@ from discord import app_commands, Interaction
 from keep_alive import keep_alive
 
 TOKEN = os.environ["DISCORD_TOKEN"]
-GUILD_ID = discord.Object(id=int(os.environ["GUILD_ID"]))  # 환경변수로 관리
+
+TEST_GUILD_ID = discord.Object(id=int(os.environ["TEST_GUILD_ID"]))
+LIVE_GUILD_ID = discord.Object(id=int(os.environ["LIVE_GUILD_ID"]))
+
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -127,8 +130,18 @@ async def 파티(interaction: Interaction, 던전명: str, 출발시간: str, �
 # -------------------------- 봇 실행 --------------------------
 @bot.event
 async def on_ready():
-    await bot.tree.sync(guild=GUILD_ID)
-    print(f"✅ 봇 로그인: {bot.user}")
+    try:
+        await bot.tree.sync(guild=TEST_GUILD_ID)
+        print("✅ 테스트 서버 명령어 등록 완료")
+
+        await bot.tree.sync(guild=LIVE_GUILD_ID)
+        print("✅ 운영 서버 명령어 등록 완료")
+
+    except Exception as e:
+        print(f"❌ 명령어 등록 중 오류 발생: {e}")
+
+    print(f"🤖 봇 로그인 완료: {bot.user}")
+
 
 keep_alive()
 bot.run(TOKEN)
