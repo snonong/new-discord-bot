@@ -133,20 +133,34 @@ class PartyView(discord.ui.View):
         self.add_item(CompleteButton(self.author_id))
 
     def generate_description(self):
-        desc = f"**출발 시간**: {self.time}\n"
-        desc += f"**인원**: {len(self.unique_users)} / {self.capacity}\n"
-        desc += f"**설명**: {self.description_text}\n\n"
+        role_lines = {role: [] for role in self.roles}
         for button in self.children:
             if isinstance(button, RoleButton):
-                mentions = []
                 for u in button.clicked_users:
                     other_roles = [r for r in self.user_roles[u] if r != button.role]
                     if other_roles:
-                        mentions.append(f"{u.mention}({', '.join(other_roles)} O)")
+                        role_lines[button.role].append(f"{u.mention}({', '.join(other_roles)} O)")
                     else:
-                        mentions.append(f"{u.mention}")
-                desc += f"**{button.role}**: {' '.join(mentions)}\n"
-        return desc
+                        role_lines[button.role].append(f"{u.mention}")
+
+        lines = [
+            f"**출발 시간**: {self.time}",
+            f"**인원**: {len(self.unique_users)} / {self.capacity}",
+            f"**설명**: {self.description_text}",
+            "",
+            "•❅───────────✧❅✦❅✧───────────❅•",
+            "세가       세바       딜러"
+        ]
+
+        max_rows = max(len(role_lines[r]) for r in self.roles)
+        for i in range(max_rows):
+            row = []
+            for r in self.roles:
+                row.append(role_lines[r][i] if i < len(role_lines[r]) else " ")
+            lines.append("   ".join(row))
+
+        lines.append("•❅───────────✧❅✦❅✧───────────❅•")
+        return "\n".join(lines)
 
 @bot.tree.command(name="파티", description="던전 파티를 모집합니다.")
 @app_commands.describe(
