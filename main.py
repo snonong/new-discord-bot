@@ -62,7 +62,9 @@ async def 분배(interaction: Interaction, 제목: str, 닉네임: str):
 # -------------------------- /파티 명령어 --------------------------
 class RoleButton(discord.ui.Button):
     def __init__(self, role: str, author_id: int):
-        super().__init__(label=role, style=discord.ButtonStyle.primary)
+        color_map = {"세가": discord.ButtonStyle.primary, "세바": discord.ButtonStyle.success, "딜러": discord.ButtonStyle.danger}
+        style = color_map.get(role, discord.ButtonStyle.secondary)
+        super().__init__(label=role, style=style)
         self.role = role
         self.author_id = author_id
         self.clicked_users = []
@@ -84,7 +86,7 @@ class RoleButton(discord.ui.Button):
 
 class CompleteButton(discord.ui.Button):
     def __init__(self, author_id):
-        super().__init__(label="모집 완료", style=discord.ButtonStyle.danger)
+        super().__init__(label="모집 완료", style=discord.ButtonStyle.secondary)
         self.author_id = author_id
 
     async def callback(self, interaction: Interaction):
@@ -131,16 +133,19 @@ class PartyView(discord.ui.View):
         self.add_item(CompleteButton(self.author_id))
 
     def generate_description(self):
-        desc = f"출발 시간: {self.time}\n"
-        desc += f"인원: {len(self.unique_users)} / {self.capacity}\n"
-        desc += f"설명: {self.description_text}\n"
+        desc = f"**출발 시간**: {self.time}\n"
+        desc += f"**인원**: {len(self.unique_users)} / {self.capacity}\n"
+        desc += f"**설명**: {self.description_text}\n\n"
         for button in self.children:
             if isinstance(button, RoleButton):
-                mentions = ' '.join(
-                    f"{u.mention}(다른역할 O)" if len(self.user_roles[u]) > 1 else f"{u.mention}"
-                    for u in button.clicked_users
-                )
-                desc += f"{button.role}: {mentions or '-'}\n"
+                mentions = []
+                for u in button.clicked_users:
+                    other_roles = [r for r in self.user_roles[u] if r != button.role]
+                    if other_roles:
+                        mentions.append(f"{u.mention}({', '.join(other_roles)} O)")
+                    else:
+                        mentions.append(f"{u.mention}")
+                desc += f"**{button.role}**: {' '.join(mentions)}\n"
         return desc
 
 @bot.tree.command(name="파티", description="던전 파티를 모집합니다.")
@@ -160,7 +165,7 @@ async def 파티(interaction: Interaction, 던전명: str, 출발시간: str, �
         description=설명
     )
     view.embed.description = view.generate_description()
-    await interaction.response.send_message(embed=view.embed, view=view)
+    await interaction.response.send_message(content="@everyone", embed=view.embed, view=view)
     thread = await interaction.channel.create_thread(name=f"{던전명} 파티 모집", type=discord.ChannelType.public_thread)
     await thread.add_user(interaction.user)
 
